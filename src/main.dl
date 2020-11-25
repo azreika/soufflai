@@ -1,0 +1,3 @@
+.decl Hey(x:symbol)
+Hey("yo").
+.output Hey()
