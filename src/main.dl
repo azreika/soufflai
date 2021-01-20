@@ -1,3 +1,59 @@
-.decl Hey(x:symbol)
-Hey("yo").
-.output Hey()
+.type NodeID = number
+
+.decl node(id:NodeID, layer:number, index:number)
+// dummy prev
+node(-1, -1, 0).
+
+// input layer
+node(0, 0, 0).
+node(1, 0, 1).
+
+// layer 1
+node(2, 1, 0).
+node(3, 1, 1).
+
+// layer 2
+node(4, 2, 0).
+
+.decl edge(x:NodeID, y:NodeID, weight:float)
+// into input
+edge(-1, 0, 0.1).
+edge(-1, 1, 0.3).
+
+// input to layer 1
+edge(0, 2, -0.1).
+edge(0, 3, 0.2).
+edge(1, 2, 0.2).
+edge(1, 3, -0.3).
+
+// layer 1 to layer 2
+edge(2, 4, 0.3).
+edge(3, 4, -0.1).
+
+.decl forward(id:NodeID, value:float)
+// value of dummy input nodes is 1
+forward(-1, 1).
+
+forward(id, value) :-
+    node(id, layer, _),
+    forwardInductive(id, value, index),
+    // stopping index is index of max prev layer node
+    index = max x : { node(_, layer-1, x) }.
+
+// Inductive step to sum up all incoming values
+// Induces an ordering based on previous layer indices
+.decl forwardInductive(id:NodeID, rolling_value:float, index:number)
+forwardInductive(id, 0.0, -1) :- node(id, _, _).
+forwardInductive(id, prev_value + x1_value * weight, index) :-
+    forwardInductive(id, prev_value, prev_index),
+    index = prev_index + 1,
+    node(x1_id, _, index),
+    edge(x1_id, id, weight),
+    forward(x1_id, x1_value).
+
+.decl result(id:NodeID, layer:number, index:number, weight:float)
+result(id, layer, index, weight) :-
+    forward(id, weight),
+    node(id, layer, index).
+
+.output result()
