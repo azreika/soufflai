@@ -1,3 +1,5 @@
+#define EULER 2.71828
+
 .type NodeID = number
 
 .decl node(id:NodeID, layer:number, index:number)
@@ -40,6 +42,21 @@ forward(id, value) :-
     // stopping index is index of max prev layer node
     index = max x : { node(_, layer-1, x) }.
 
+.decl activatedForward(id:NodeID, value:float)
+activatedForward(id, value) :-
+    forward(id, initial),
+    node(id, layer, _),
+    max_layer = max l : node(_, l, _),
+
+    // sigmoid for output layer
+    ((layer = max_layer, value = (1/(1+EULER^(-initial))));
+
+    // max(0, v) for hidden layers
+     (layer < max_layer, layer > -1, value = max(0, initial));
+
+    // dummy input node shouldnt change
+     (layer = -1, value = initial)).
+
 // Inductive step to sum up all incoming values
 // Induces an ordering based on previous layer indices
 .decl forwardInductive(id:NodeID, rolling_value:float, index:number)
@@ -49,11 +66,11 @@ forwardInductive(id, prev_value + x1_value * weight, index) :-
     index = prev_index + 1,
     node(x1_id, _, index),
     edge(x1_id, id, weight),
-    forward(x1_id, x1_value).
+    activatedForward(x1_id, x1_value).
 
-.decl result(id:NodeID, layer:number, index:number, weight:float)
-result(id, layer, index, weight) :-
-    forward(id, weight),
+.decl nodeWeights(id:NodeID, layer:number, index:number, initial:float, activated:float)
+nodeWeights(id, layer, index, initial, activated) :-
+    forward(id, initial),
+    activatedForward(id, activated),
     node(id, layer, index).
-
-.output result()
+.output nodeWeights()
