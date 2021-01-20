@@ -32,12 +32,16 @@ edge(1, 3, -0.3).
 edge(2, 4, 0.3).
 edge(3, 4, -0.1).
 
+.decl nodeBias(id:NodeID, value:float)
+nodeBias(id, 0) :- node(id, _, _).
+
 .decl forward(id:NodeID, value:float)
 // value of dummy input nodes is 1
 forward(-1, 1).
 
-forward(id, value) :-
+forward(id, value + bias) :-
     node(id, layer, _),
+    nodeBias(id, bias),
     forwardInductive(id, value, index),
     // stopping index is index of max prev layer node
     index = max x : { node(_, layer-1, x) }.
