@@ -1,4 +1,5 @@
 #define EULER 2.71828
+#define ETA 0.5
 
 .type NodeID = number
 
@@ -52,7 +53,41 @@ nodeWeights(id, layer, index, initial, activated) :-
 
 .decl totalError(error:float)
 totalError(error) :-
-    error = 0.5 * (sum (x * x) : { x = target - actual, targetValue(id, target), activatedForward(id, actual)}).
+    error = 0.5 * (sum (x * x) : {
+        x = target - actual,
+        targetValue(id, target),
+        activatedForward(id, actual)}).
+
+.decl newEdgeWeight(x:NodeID, y:NodeID, weight:float)
+newEdgeWeight(x, y, old_weight - ETA * difference) :-
+    edge(x, y, old_weight),
+    edgeDiffTotalOut(x, y, diffTotalOut),
+    edgeDiffOutNet(x, y, diffOutNet),
+    edgeDiffNetWeight(x, y, diffNetWeight),
+    difference = diffTotalOut * diffOutNet * diffNetWeight.
+.output newEdgeWeight()
+
+.decl edgeDiffTotalOut(x:NodeID, y:NodeID, weight:float)
+edgeDiffTotalOut(x, y, actual - target) :-
+    layer = max l : node(_, l, _),
+    node(y, layer, _),
+    targetValue(y, target),
+    activatedForward(y, actual),
+    edge(x, y, _).
+
+.decl edgeDiffOutNet(x:NodeID, y:NodeID, weight:float)
+edgeDiffOutNet(x, y, out * (1 - out)) :-
+    activatedForward(y, out),
+    edge(x, y, _).
+
+.decl edgeDiffNetWeight(x:NodeID, y:NodeID, weight:float)
+edgeDiffNetWeight(x, y, out) :-
+    activatedForward(x, out),
+    edge(x, y, _).
+
+.output edgeDiffTotalOut()
+.output edgeDiffOutNet()
+.output edgeDiffNetWeight()
 
 .output totalError()
 .output nodeWeights()
