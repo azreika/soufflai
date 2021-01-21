@@ -2,6 +2,10 @@
 
 .type NodeID = number
 
+.decl targetValue(id:NodeID, target:float)
+targetValue(4, 0.01).
+targetValue(5, 0.99).
+
 .decl node(id:NodeID, layer:number, index:number)
 .decl nodeBias(id:NodeID, value:float)
 // dummy prev
@@ -85,4 +89,10 @@ nodeWeights(id, layer, index, initial, activated) :-
     forward(id, initial),
     activatedForward(id, activated),
     node(id, layer, index).
+
+.decl totalError(error:float)
+totalError(error) :-
+    error = 0.5 * (sum (x * x) : { x = target - actual, targetValue(id, target), activatedForward(id, actual)}).
+.output totalError()
+
 .output nodeWeights()
