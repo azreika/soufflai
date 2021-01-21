@@ -3,37 +3,45 @@
 .type NodeID = number
 
 .decl node(id:NodeID, layer:number, index:number)
+.decl nodeBias(id:NodeID, value:float)
 // dummy prev
 node(-1, -1, 0).
+nodeBias(-1, 0).
 
 // input layer
 node(0, 0, 0).
 node(1, 0, 1).
+nodeBias(0, 0).
+nodeBias(1, 0).
 
 // layer 1
 node(2, 1, 0).
 node(3, 1, 1).
+nodeBias(2, 0.35).
+nodeBias(3, 0.35).
 
 // layer 2
 node(4, 2, 0).
+node(5, 2, 1).
+nodeBias(4, 0.60).
+nodeBias(5, 0.60).
 
 .decl edge(x:NodeID, y:NodeID, weight:float)
 // into input
-edge(-1, 0, 0.1).
-edge(-1, 1, 0.3).
+edge(-1, 0, 0.05).
+edge(-1, 1, 0.10).
 
 // input to layer 1
-edge(0, 2, -0.1).
-edge(0, 3, 0.2).
-edge(1, 2, 0.2).
-edge(1, 3, -0.3).
+edge(0, 2, 0.15).
+edge(0, 3, 0.25).
+edge(1, 2, 0.20).
+edge(1, 3, 0.30).
 
 // layer 1 to layer 2
-edge(2, 4, 0.3).
-edge(3, 4, -0.1).
-
-.decl nodeBias(id:NodeID, value:float)
-nodeBias(id, 0) :- node(id, _, _).
+edge(2, 4, 0.40).
+edge(2, 5, 0.50).
+edge(3, 4, 0.45).
+edge(3, 5, 0.55).
 
 .decl forward(id:NodeID, value:float)
 // value of dummy input nodes is 1
@@ -55,11 +63,11 @@ activatedForward(id, value) :-
     // sigmoid for output layer
     ((layer = max_layer, value = (1/(1+EULER^(-initial))));
 
-    // max(0, v) for hidden layers
-     (layer < max_layer, layer > -1, value = max(0, initial));
+    // sigmoid for hidden layers
+     (layer < max_layer, layer > 0, value = (1/(1+EULER^(-initial))));
 
-    // dummy input node shouldnt change
-     (layer = -1, value = initial)).
+    // input nodes shouldnt change
+     (layer <= 0, value = initial)).
 
 // Inductive step to sum up all incoming values
 // Induces an ordering based on previous layer indices
