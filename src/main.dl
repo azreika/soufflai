@@ -59,35 +59,54 @@ totalError(error) :-
         activatedForward(id, actual)}).
 
 .decl newEdgeWeight(x:NodeID, y:NodeID, weight:float)
-newEdgeWeight(x, y, old_weight - ETA * difference) :-
+newEdgeWeight(x, y, old_weight - ETA * deltaErrorVsWeight) :-
     edge(x, y, old_weight),
-    edgeDiffTotalOut(x, y, diffTotalOut),
-    edgeDiffOutNet(x, y, diffOutNet),
-    edgeDiffNetWeight(x, y, diffNetWeight),
-    difference = diffTotalOut * diffOutNet * diffNetWeight.
+    edgeDeltaErrorVsOut(x, y, deltaErrorVsOut),
+    edgeDeltaOutVsNet(x, y, deltaOutVsNet),
+    edgeDeltaNetVsWeight(x, y, deltaNetVsWeight),
+    deltaErrorVsWeight = deltaErrorVsOut * deltaOutVsNet * deltaNetVsWeight.
 .output newEdgeWeight()
 
-.decl edgeDiffTotalOut(x:NodeID, y:NodeID, weight:float)
-edgeDiffTotalOut(x, y, actual - target) :-
+.decl edgeDeltaOutVsNet(x:NodeID, y:NodeID, delta:float)
+.output edgeDeltaOutVsNet()
+edgeDeltaOutVsNet(x, y, delta) :-
+    edge(x, y, _),
+    activatedForward(y, out),
+    delta = out * (1 - out).
+
+.decl edgeDeltaNetVsWeight(x:NodeID, y:NodeID, delta:float)
+.output edgeDeltaNetVsWeight()
+edgeDeltaNetVsWeight(x, y, delta) :-
+    edge(x, y, _),
+    activatedForward(x, out),
+    delta = out.
+
+.decl edgeDeltaErrorVsOut(x:NodeID, y:NodeID, delta:float)
+.output edgeDeltaErrorVsOut()
+// For output layer
+edgeDeltaErrorVsOut(x, y, delta) :-
     layer = max l : node(_, l, _),
     node(y, layer, _),
     targetValue(y, target),
     activatedForward(y, actual),
-    edge(x, y, _).
+    edge(x, y, _),
+    delta = actual - target.
 
-.decl edgeDiffOutNet(x:NodeID, y:NodeID, weight:float)
-edgeDiffOutNet(x, y, out * (1 - out)) :-
-    activatedForward(y, out),
-    edge(x, y, _).
-
-.decl edgeDiffNetWeight(x:NodeID, y:NodeID, weight:float)
-edgeDiffNetWeight(x, y, out) :-
-    activatedForward(x, out),
-    edge(x, y, _).
-
-.output edgeDiffTotalOut()
-.output edgeDiffOutNet()
-.output edgeDiffNetWeight()
+// // For hidden layers
+// edgeDiffTotalOut(x, y, result) :-
+//     max_layer = max l : node(_, l, _),
+//     node(y, layer, _),
+//     layer < max_layer,
+//     result = sum v : {
+//         edge(y, end, _),
+//         end_error_over_end_net = end_error_over_end_out * end_out_over_end_net,
+//         edgeDiffOutNet(y, end, end_out_over_end_net),
+//         activatedForward(end, actual),
+//         targetValue(end, target),
+//         end_error_over_end_out = actual - target,
+//         v = end_error_over_end_net * end_net_over_y,
+//         end_net_over_y`
+//     }.
 
 .output totalError()
 .output nodeWeights()
