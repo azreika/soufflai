@@ -92,21 +92,27 @@ edgeDeltaErrorVsOut(x, y, delta) :-
     edge(x, y, _),
     delta = actual - target.
 
-// // For hidden layers
-// edgeDiffTotalOut(x, y, result) :-
-//     max_layer = max l : node(_, l, _),
-//     node(y, layer, _),
-//     layer < max_layer,
-//     result = sum v : {
-//         edge(y, end, _),
-//         end_error_over_end_net = end_error_over_end_out * end_out_over_end_net,
-//         edgeDiffOutNet(y, end, end_out_over_end_net),
-//         activatedForward(end, actual),
-//         targetValue(end, target),
-//         end_error_over_end_out = actual - target,
-//         v = end_error_over_end_net * end_net_over_y,
-//         end_net_over_y`
-//     }.
+// For hidden layers
+edgeDeltaErrorVsOut(x, y, delta) :-
+    edge(x, y, _),
+    node(y, layer, _),
+    edgeDeltaErrorVsOutInductive(x, y, delta, index),
+    index = max x : { node(_, layer+1, x) }.
+
+.decl edgeDeltaErrorVsOutInductive(x:NodeID, y:NodeID, rolling_delta:float, index:number)
+edgeDeltaErrorVsOutInductive(x, y, 0, -1) :-
+    edge(x, y, _),
+    node(y, layer, _),
+    layer < max l : node(_, l, _).
+
+edgeDeltaErrorVsOutInductive(x, y, old_delta + cur_delta, index) :-
+    edgeDeltaErrorVsOutInductive(x, y, old_delta, old_index),
+    index = old_index + 1,
+    edge(y, z, sub_delta3),
+    node(z, _, index),
+    edgeDeltaErrorVsOut(y, z, sub_delta1),
+    edgeDeltaOutVsNet(y, z, sub_delta2),
+    cur_delta = sub_delta1 * sub_delta2 * sub_delta3.
 
 .output totalError()
 .output nodeWeights()
