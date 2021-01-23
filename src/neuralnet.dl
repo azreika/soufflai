@@ -1,7 +1,9 @@
 #define EULER 2.71828
-#define ETA 0.5
+#define ETA 1
+#define N_EPOCHS 100
 
 #define Step number
+#define Epoch number
 
 .type InputID = number
 .type NodeID = number
@@ -38,49 +40,68 @@ orderedInput(input_id, $) :- validInputID(input_id).
 
 // Add in dummy edges from dummy node to input layer
 .decl dummyEdge(id:EdgeID, input_node:NodeID)
-dummyEdge(-$, input_node) :- inputValue(_, input_node, _).
+dummyEdge(-($+1), input_node) :- inputValue(_, input_node, _).
 edge(id, -1, input_node) :- dummyEdge(id, input_node).
 
 // Set up initial edge weights
-.decl edgeWeight(step:Step, edge:EdgeID, weight:float)
-edgeWeight(start_step, edge, weight) :-
+// TODO: why choice domain necessary?
+.decl edgeWeight(epoch:Epoch, step:Step, edge:EdgeID, weight:float) choice-domain (epoch, step, edge)
+
+// - Epoch iteration
+
+// -- First epoch
+edgeWeight(0, start_step, edge, weight) :-
     start_step = min step : orderedInput(_, step),
     initialEdgeWeight(edge, weight).
-edgeWeight(step, edge, weight) :-
-    step = prev_step + 1,
-    validStep(step),
-    step != min s : orderedInput(_, s),
-    !dummyEdge(edge, _),
-    newEdgeWeight(prev_step, edge, weight).
 
-// Connect inputs to input nodes
-edgeWeight(step, dummy_edge, value) :-
+// -- Other epochs
+edgeWeight(epoch, start_step, edge, weight) :-
+    epoch = prev_epoch + 1,
+    validEpoch(epoch),
+    start_step = min step : orderedInput(_, step),
+    max_step = max step : orderedInput(_, step),
+    newEdgeWeight(prev_epoch, max_step, edge, weight).
+
+// - Step iteration
+
+// -- Connect inputs to input nodes
+edgeWeight(epoch, step, dummy_edge, value) :-
+    validEpoch(epoch),
     orderedInput(input_id, step),
     dummyEdge(dummy_edge, input_node),
     inputValue(input_id, input_node, value).
 
+// -- Other steps
+edgeWeight(epoch, step, edge, weight) :-
+    step = prev_step + 1,
+    validStep(step),
+    step != min s : orderedInput(_, s),
+    !dummyEdge(edge, _),
+    newEdgeWeight(epoch, prev_step, edge, weight).
+
 .decl validStep(step:Step)
 validStep(step) :- orderedInput(_, step).
 
-.output forward
-.output dummyEdge
+.decl validEpoch(epoch:Epoch)
+validEpoch(0).
+validEpoch(e + 1) :- validEpoch(e), e < N_EPOCHS - 1.
 
 /***
  * Forward propagation
  */
-.decl forward(step:Step, node:NodeID, value:float)
+.decl forward(epoch:Epoch, step:Step, node:NodeID, value:float)
 // Value of dummy start node is 1
-forward(step, -1, 1) :- validStep(step).
-forward(step, node, value + bias) :-
+forward(epoch, step, -1, 1) :- validEpoch(epoch), validStep(step).
+forward(epoch, step, node, value + bias) :-
     node(node, layer, _),
     nodeBias(node, bias),
-    forwardInductive(step, node, value, max_index),
+    forwardInductive(epoch, step, node, value, max_index),
     // stopping index is index of max prev layer node
     max_index = max index : { node(_, layer-1, index) }.
 
-.decl activatedForward(step:Step, node:NodeID, value:float)
-activatedForward(step, node, value) :-
-    forward(step, node, initial),
+.decl activatedForward(epoch:Epoch, step:Step, node:NodeID, value:float)
+activatedForward(epoch, step, node, value) :-
+    forward(epoch, step, node, initial),
     node(node, layer, _),
     max_layer = max l : node(_, l, _),
     sigmoid = 1/(1+EULER^(-initial)),
@@ -96,89 +117,97 @@ activatedForward(step, node, value) :-
 
 // Inductive step to sum up all incoming values
 // Induces an ordering based on previous layer indices
-.decl forwardInductive(step:Step, node:NodeID, rolling_value:float, index:number)
-forwardInductive(step, node, 0.0, -1) :- validStep(step), node(node, _, _).
-forwardInductive(step, node, prev_value + x1_value * weight, index) :-
-    forwardInductive(step, node, prev_value, prev_index),
+.decl forwardInductive(epoch:Epoch, step:Step, node:NodeID, rolling_value:float, index:number)
+forwardInductive(epoch, step, node, 0.0, -1) :- validEpoch(epoch), validStep(step), node(node, _, _).
+forwardInductive(epoch, step, node, prev_value + x1_value * weight, index) :-
+    forwardInductive(epoch, step, node, prev_value, prev_index),
     index = prev_index + 1,
     node(x1, _, index),
     edge(edge, x1, node),
-    edgeWeight(step, edge, weight),
-    activatedForward(step, x1, x1_value).
+    edgeWeight(epoch, step, edge, weight),
+    activatedForward(epoch, step, x1, x1_value).
 
 /***
  * Back propagation
  */
-.decl totalError(step:Step, error:float)
-totalError(step, error) :-
-    validStep(step),
-    error = 0.5 * (sum (x * x) : {
-        x = target - actual,
-        targetValue(input_id, node, target),
-        orderedInput(input_id, step),
-        activatedForward(step, node, actual)}).
-
-.decl newEdgeWeight(step:Step, edge:EdgeID, weight:float)
-newEdgeWeight(step, edge, old_weight - ETA * deltaErrorVsWeight) :-
+.decl newEdgeWeight(epoch:Epoch, step:Step, edge:EdgeID, weight:float)
+newEdgeWeight(epoch, step, edge, old_weight - ETA * deltaErrorVsWeight) :-
     edge(edge, _, _),
-    edgeWeight(step, edge, old_weight),
-    edgeDeltaErrorVsOut(step, edge, deltaErrorVsOut),
-    edgeDeltaOutVsNet(step, edge, deltaOutVsNet),
-    edgeDeltaNetVsWeight(step, edge, deltaNetVsWeight),
+    edgeWeight(epoch, step, edge, old_weight),
+    edgeDeltaErrorVsOut(epoch, step, edge, deltaErrorVsOut),
+    edgeDeltaOutVsNet(epoch, step, edge, deltaOutVsNet),
+    edgeDeltaNetVsWeight(epoch, step, edge, deltaNetVsWeight),
     deltaErrorVsWeight = deltaErrorVsOut * deltaOutVsNet * deltaNetVsWeight.
 
-.decl edgeDeltaOutVsNet(step:Step, edge:EdgeID, delta:float)
-edgeDeltaOutVsNet(step, edge, delta) :-
+.decl edgeDeltaOutVsNet(epoch:Epoch, step:Step, edge:EdgeID, delta:float)
+edgeDeltaOutVsNet(epoch, step, edge, delta) :-
     edge(edge, _, y),
-    activatedForward(step, y, out),
+    activatedForward(epoch, step, y, out),
     delta = out * (1 - out).
 
-.decl edgeDeltaNetVsWeight(step:Step, edge:EdgeID, delta:float)
-edgeDeltaNetVsWeight(step, edge, delta) :-
+.decl edgeDeltaNetVsWeight(epoch:Epoch, step:Step, edge:EdgeID, delta:float)
+edgeDeltaNetVsWeight(epoch, step, edge, delta) :-
     edge(edge, x, _),
-    activatedForward(step, x, out),
+    activatedForward(epoch, step, x, out),
     delta = out.
 
-.decl edgeDeltaErrorVsOut(step:Step, edge:EdgeID, delta:float)
+.decl edgeDeltaErrorVsOut(epoch:Epoch, step:Step, edge:EdgeID, delta:float)
 // For output layer
-edgeDeltaErrorVsOut(step, edge, delta) :-
+edgeDeltaErrorVsOut(epoch, step, edge, delta) :-
     layer = max l : node(_, l, _),
     node(y, layer, _),
     targetValue(input_id, y, target),
     orderedInput(input_id, step),
-    activatedForward(step, y, actual),
+    activatedForward(epoch, step, y, actual),
     edge(edge, _, y),
     delta = actual - target.
 
 // For hidden layers
-edgeDeltaErrorVsOut(step, edge, delta) :-
+edgeDeltaErrorVsOut(epoch, step, edge, delta) :-
     edge(edge, _, y),
     node(y, layer, _),
-    edgeDeltaErrorVsOutInductive(step, edge, delta, max_index),
+    edgeDeltaErrorVsOutInductive(epoch, step, edge, delta, max_index),
     max_index = max idx : { node(_, layer+1, idx) }.
 
 // Inductive relation to find dError/dOut for each hidden layer node
 // Recursive sum aggregate of previous backpropagated error values
-.decl edgeDeltaErrorVsOutInductive(step:Step, edge:EdgeID, rolling_delta:float, index:number)
-edgeDeltaErrorVsOutInductive(step, edge, 0, -1) :-
+.decl edgeDeltaErrorVsOutInductive(epoch:Epoch, step:Step, edge:EdgeID, rolling_delta:float, index:number)
+edgeDeltaErrorVsOutInductive(epoch, step, edge, 0, -1) :-
+    validEpoch(epoch),
     validStep(step),
     edge(edge, _, y),
     node(y, layer, _),
     layer < max l : node(_, l, _).
 
-edgeDeltaErrorVsOutInductive(step, edge, old_delta + cur_delta, index) :-
-    edgeDeltaErrorVsOutInductive(step, edge, old_delta, old_index),
+edgeDeltaErrorVsOutInductive(epoch, step, edge, old_delta + cur_delta, index) :-
+    edgeDeltaErrorVsOutInductive(epoch, step, edge, old_delta, old_index),
     index = old_index + 1,
     edge(edge, _, y),
     edge(next_edge, y, z),
-    edgeWeight(step, next_edge, sub_delta3),
+    edgeWeight(epoch, step, next_edge, sub_delta3),
     node(z, _, index),
-    edgeDeltaErrorVsOut(step, next_edge, sub_delta1),
-    edgeDeltaOutVsNet(step, next_edge, sub_delta2),
+    edgeDeltaErrorVsOut(epoch, step, next_edge, sub_delta1),
+    edgeDeltaOutVsNet(epoch, step, next_edge, sub_delta2),
     cur_delta = sub_delta1 * sub_delta2 * sub_delta3.
 
 /**
  * Output
  */
-.output newEdgeWeight
+.decl finalEdgeWeight(edge:EdgeID, weight:float)
+finalEdgeWeight(edge, weight) :-
+    newEdgeWeight(epoch, step, edge, weight),
+    epoch = max e : newEdgeWeight(e, _, _, _),
+    step = max s : newEdgeWeight(epoch, s, _, _).
+.output finalEdgeWeight
+
+.decl totalError(epoch:Epoch, error:float)
 .output totalError
+totalError(epoch, error) :-
+    validEpoch(epoch),
+    (epoch = 0 ; epoch = N_EPOCHS-1),
+    step = max s : validStep(s),
+    error = 0.5 * (sum (x * x) : {
+        x = target - actual,
+        targetValue(input_id, node, target),
+        orderedInput(input_id, step),
+        activatedForward(epoch, step, node, actual)}).
