@@ -120,11 +120,11 @@ activatedForward(epoch, step, node, value) :-
 .decl forwardInductive(epoch:Epoch, step:Step, node:NodeID, rolling_value:float, index:number)
 forwardInductive(epoch, step, node, 0.0, -1) :- validEpoch(epoch), validStep(step), node(node, _, _).
 forwardInductive(epoch, step, node, prev_value + x1_value * weight, index) :-
-    forwardInductive(epoch, step, node, prev_value, prev_index),
     index = prev_index + 1,
     node(x1, _, index),
     edge(edge, x1, node),
     edgeWeight(epoch, step, edge, weight),
+    forwardInductive(epoch, step, node, prev_value, prev_index),
     activatedForward(epoch, step, x1, x1_value).
 
 /***
