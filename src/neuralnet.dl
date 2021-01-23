@@ -37,9 +37,9 @@ validInputID(id) :- inputValue(id, _, _).
 orderedInput(input_id, $) :- validInputID(input_id).
 
 // Add in dummy edges from dummy node to input layer
-.decl dummyEdge(id:EdgeID, x:NodeID, y:NodeID)
-dummyEdge(-$, -1, id) :- inputValue(_, id, _).
-edge(id, x, y) :- dummyEdge(id, x, y).
+.decl dummyEdge(id:EdgeID, input_node:NodeID)
+dummyEdge(-$, input_node) :- inputValue(_, input_node, _).
+edge(id, -1, input_node) :- dummyEdge(id, input_node).
 
 // Set up initial edge weights
 .decl edgeWeight(step:Step, edge:EdgeID, weight:float)
@@ -50,13 +50,13 @@ edgeWeight(step, edge, weight) :-
     step = prev_step + 1,
     validStep(step),
     step != min s : orderedInput(_, s),
-    !dummyEdge(edge, _, _),
+    !dummyEdge(edge, _),
     newEdgeWeight(prev_step, edge, weight).
 
 // Connect inputs to input nodes
 edgeWeight(step, dummy_edge, value) :-
     orderedInput(input_id, step),
-    dummyEdge(dummy_edge, -1, input_node),
+    dummyEdge(dummy_edge, input_node),
     inputValue(input_id, input_node, value).
 
 .decl validStep(step:Step)
