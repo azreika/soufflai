@@ -1,14 +1,15 @@
 #define EULER 2.71828
 #define ETA 0.5
 
+.type InputID = number
 .type NodeID = number
 .type EdgeID = number
 
 /***
  * Configuration
  */
-.decl inputValue(id:NodeID, value:float)
-.decl targetValue(id:NodeID, value:float)
+.decl inputValue(input_id:InputID, node_id:NodeID, value:float)
+.decl targetValue(input_id:InputID, node_id:NodeID, value:float)
 .decl nodeBias(id:NodeID, value:float)
 .decl node(id:NodeID, layer:number, index:number)
 .decl edge(id:EdgeID, x:NodeID, y:NodeID)
@@ -29,15 +30,15 @@ node(-1, -1, 0).
 
 // Add in dummy edges from dummy node to input layer
 .decl dummyEdge(id:EdgeID, x:NodeID, y:NodeID)
-dummyEdge(-($+1), -1, id) :- inputValue(id, _).
+dummyEdge(-($+1), -1, id) :- inputValue(_, id, _).
 
 edge(id, x, y) :- dummyEdge(id, x, y).
 initialEdgeWeight(edge_id, value) :-
     dummyEdge(edge_id, -1, input_node_id),
-    inputValue(input_node_id, value).
+    inputValue(_, input_node_id, value).
 
-.decl edgeWeight(id:EdgeID, weight:float)
-edgeWeight(id, weight) :- initialEdgeWeight(id, weight).
+.decl edgeWeight(input_id:InputID, edge_id:EdgeID, weight:float)
+edgeWeight(0, id, weight) :- initialEdgeWeight(id, weight).
 
 /***
  * Forward propagation
@@ -77,7 +78,7 @@ forwardInductive(id, prev_value + x1_value * weight, index) :-
     index = prev_index + 1,
     node(x1_id, _, index),
     edge(edge_id, x1_id, id),
-    edgeWeight(edge_id, weight),
+    edgeWeight(_, edge_id, weight),
     activatedForward(x1_id, x1_value).
 
 /***
@@ -87,14 +88,14 @@ forwardInductive(id, prev_value + x1_value * weight, index) :-
 totalError(error) :-
     error = 0.5 * (sum (x * x) : {
         x = target - actual,
-        targetValue(id, target),
+        targetValue(_, id, target),
         activatedForward(id, actual)}).
 
 .decl newEdgeWeight(id:EdgeID, weight:float)
 newEdgeWeight(id, old_weight - ETA * deltaErrorVsWeight) :-
     id >= 0, // ignore dummy edges
     edge(id, _, _),
-    edgeWeight(id, old_weight),
+    edgeWeight(_, id, old_weight),
     edgeDeltaErrorVsOut(id, deltaErrorVsOut),
     edgeDeltaOutVsNet(id, deltaOutVsNet),
     edgeDeltaNetVsWeight(id, deltaNetVsWeight),
@@ -117,7 +118,7 @@ edgeDeltaNetVsWeight(id, delta) :-
 edgeDeltaErrorVsOut(id, delta) :-
     layer = max l : node(_, l, _),
     node(y, layer, _),
-    targetValue(y, target),
+    targetValue(_, y, target),
     activatedForward(y, actual),
     edge(id, _, y),
     delta = actual - target.
@@ -142,7 +143,7 @@ edgeDeltaErrorVsOutInductive(id, old_delta + cur_delta, index) :-
     index = old_index + 1,
     edge(id, _, y),
     edge(next_id, y, z),
-    edgeWeight(next_id, sub_delta3),
+    edgeWeight(_, next_id, sub_delta3),
     node(z, _, index),
     edgeDeltaErrorVsOut(next_id, sub_delta1),
     edgeDeltaOutVsNet(next_id, sub_delta2),
