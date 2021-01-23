@@ -21,7 +21,7 @@
  * Forward propagation
  */
 .decl forward(id:NodeID, value:float)
-// value of dummy start node is 1
+// Value of dummy start node is 1
 forward(-1, 1).
 forward(id, value + bias) :-
     node(id, layer, _),
@@ -69,12 +69,12 @@ totalError(error) :-
 
 .decl newEdgeWeight(id:EdgeID, weight:float)
 newEdgeWeight(id, old_weight - ETA * deltaErrorVsWeight) :-
+    id >= 0, // ignore dummy edges
     edge(id, _, _, old_weight),
     edgeDeltaErrorVsOut(id, deltaErrorVsOut),
     edgeDeltaOutVsNet(id, deltaOutVsNet),
     edgeDeltaNetVsWeight(id, deltaNetVsWeight),
     deltaErrorVsWeight = deltaErrorVsOut * deltaOutVsNet * deltaNetVsWeight.
-.output newEdgeWeight()
 
 .decl edgeDeltaOutVsNet(id:EdgeID, delta:float)
 edgeDeltaOutVsNet(id, delta) :-
