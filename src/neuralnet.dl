@@ -7,15 +7,27 @@
 /***
  * Configuration
  */
-.decl targetValue(id:NodeID, target:float)
+.decl inputValue(id:NodeID, value:float)
+.decl targetValue(id:NodeID, value:float)
 .decl nodeBias(id:NodeID, value:float)
 .decl node(id:NodeID, layer:number, index:number)
 .decl edge(id:EdgeID, x:NodeID, y:NodeID, weight:float)
 
+.input inputValue
 .input targetValue
 .input nodeBias
 .input node
 .input edge
+
+/***
+ * Input cleanup
+ */
+// Add in a dummy node to pass data into input layer
+node(-1, -1, 0).
+nodeBias(-1, 0).
+
+// Add in dummy edges from dummy node to input layer
+edge(-($+1), -1, id, value) :- inputValue(id, value).
 
 /***
  * Forward propagation
