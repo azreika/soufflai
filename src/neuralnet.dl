@@ -180,14 +180,14 @@ edgeDeltaErrorVsOutInductive(epoch, step, edge, 0, -1) :-
     layer < max l : node(_, l, _).
 
 edgeDeltaErrorVsOutInductive(epoch, step, edge, old_delta + cur_delta, index) :-
-    edgeDeltaErrorVsOutInductive(epoch, step, edge, old_delta, old_index),
-    index = old_index + 1,
     edge(edge, _, y),
     edge(next_edge, y, z),
-    edgeWeight(epoch, step, next_edge, sub_delta3),
     node(z, _, index),
-    edgeDeltaErrorVsOut(epoch, step, next_edge, sub_delta1),
+    edgeDeltaErrorVsOutInductive(epoch, step, edge, old_delta, old_index),
+    edgeWeight(epoch, step, next_edge, sub_delta3),
     edgeDeltaOutVsNet(epoch, step, next_edge, sub_delta2),
+    edgeDeltaErrorVsOut(epoch, step, next_edge, sub_delta1),
+    index = old_index + 1,
     cur_delta = sub_delta1 * sub_delta2 * sub_delta3.
 
 /**
