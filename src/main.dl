@@ -5,7 +5,7 @@
 .type EdgeID = number
 
 /***
- * Configuration input
+ * Configuration
  */
 .decl targetValue(id:NodeID, target:float)
 .decl nodeBias(id:NodeID, value:float)
@@ -21,9 +21,8 @@
  * Forward propagation
  */
 .decl forward(id:NodeID, value:float)
-// value of dummy input nodes is 1
+// value of dummy start node is 1
 forward(-1, 1).
-
 forward(id, value + bias) :-
     node(id, layer, _),
     nodeBias(id, bias),
@@ -58,12 +57,6 @@ forwardInductive(id, prev_value + x1_value * weight, index) :-
     edge(_, x1_id, id, weight),
     activatedForward(x1_id, x1_value).
 
-.decl nodeWeights(id:NodeID, layer:number, index:number, initial:float, activated:float)
-nodeWeights(id, layer, index, initial, activated) :-
-    forward(id, initial),
-    activatedForward(id, activated),
-    node(id, layer, index).
-
 /***
  * Back propagation
  */
@@ -84,21 +77,18 @@ newEdgeWeight(id, old_weight - ETA * deltaErrorVsWeight) :-
 .output newEdgeWeight()
 
 .decl edgeDeltaOutVsNet(id:EdgeID, delta:float)
-.output edgeDeltaOutVsNet()
 edgeDeltaOutVsNet(id, delta) :-
     edge(id, _, y, _),
     activatedForward(y, out),
     delta = out * (1 - out).
 
 .decl edgeDeltaNetVsWeight(id:EdgeID, delta:float)
-.output edgeDeltaNetVsWeight()
 edgeDeltaNetVsWeight(id, delta) :-
     edge(id, x, _, _),
     activatedForward(x, out),
     delta = out.
 
 .decl edgeDeltaErrorVsOut(id:EdgeID, delta:float)
-.output edgeDeltaErrorVsOut()
 // For output layer
 edgeDeltaErrorVsOut(id, delta) :-
     layer = max l : node(_, l, _),
@@ -115,6 +105,8 @@ edgeDeltaErrorVsOut(id, delta) :-
     edgeDeltaErrorVsOutInductive(id, delta, index),
     index = max idx : { node(_, layer+1, idx) }.
 
+// Inductive relation to find dError/dOut for each hidden layer node
+// Recursive sum aggregate of previous backpropagated error values
 .decl edgeDeltaErrorVsOutInductive(id:EdgeID, rolling_delta:float, index:number)
 edgeDeltaErrorVsOutInductive(id, 0, -1) :-
     edge(id, _, y, _),
@@ -131,5 +123,8 @@ edgeDeltaErrorVsOutInductive(id, old_delta + cur_delta, index) :-
     edgeDeltaOutVsNet(next_id, sub_delta2),
     cur_delta = sub_delta1 * sub_delta2 * sub_delta3.
 
-.output totalError()
-.output nodeWeights()
+/**
+ * Output
+ */
+.output newEdgeWeight
+.output totalError
